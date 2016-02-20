@@ -1,56 +1,52 @@
-import time, numpy, sys, pyfits
+import time, numpy, sys
 from numpy import array
-from pyfits import *
+from astropy.io import fits as pyfits
+from astropy.io.fits import *
 import kepio, kepmsg, kepkey, kepstat
 
-def kepimages(infile,outfix,imtype,ranges,clobber,verbose,logfile,status): 
+def kepimages(infile, outfix, imtype, ranges, clobber, verbose, logfile, status): 
 
-# startup parameters
-
+    # startup parameters
     status = 0
 
-# log the call 
-
+    # log the call
     hashline = '----------------------------------------------------------------------------'
-    kepmsg.log(logfile,hashline,verbose)
+    kepmsg.log(logfile, hashline, verbose)
     call = 'KEPIMAGES -- '
-    call += 'infile='+infile+' '
-    call += 'outfix='+outfix+' '
-    call += 'imtype='+imtype+' '
-    call += 'ranges='+str(ranges)+' '
+    call += 'infile=' + infile + ' '
+    call += 'outfix=' + outfix + ' '
+    call += 'imtype=' + imtype + ' '
+    call += 'ranges=' + str(ranges) + ' '
     overwrite = 'n'
-    if (clobber): overwrite = 'y'
-    call += 'clobber='+overwrite+ ' '
+    if (clobber):
+        overwrite = 'y'
+    call += 'clobber=' + overwrite + ' '
     chatter = 'n'
-    if (verbose): chatter = 'y'
+    if (verbose):
+        chatter = 'y'
     call += 'verbose='+chatter+' '
     call += 'logfile='+logfile
-    kepmsg.log(logfile,call+'\n',verbose)
+    kepmsg.log(logfile, call+'\n', verbose)
 
-# start time
-
+    # start time
     kepmsg.clock('KEPIMAGES started at',logfile,verbose)
 
-# test log file
-
+    # test log file
     logfile = kepmsg.test(logfile)
 
-# open input file
-
+    # open input file
     status = 0
-    print ' '
-    instr = pyfits.open(infile,mode='readonly',memmap=True)
+    print(' ')
+    instr = pyfits.open(infile, mode='readonly', memmap=True)
     cards0 = instr[0].header.cards
     cards1 = instr[1].header.cards
     cards2 = instr[2].header.cards
 
-# fudge non-compliant FITS keywords with no values
-
+    # fudge non-compliant FITS keywords with no values
     if status == 0:
-        instr = kepkey.emptykeys(instr,file,logfile,verbose)
+        instr = kepkey.emptykeys(instr, infile, logfile, verbose)
 
-# ingest time series data
-
+    # ingest time series data
     if status == 0:
         time = instr[1].data.field('TIME')[:] + 2454833.0
         timecorr = instr[1].data.field('TIMECORR')[:]
@@ -65,8 +61,7 @@ def kepimages(infile,outfix,imtype,ranges,clobber,verbose,logfile,status):
         pos_corr1 = instr[1].data.field('POS_CORR1')[:]
         pos_corr2 = instr[1].data.field('POS_CORR2')[:]
 
-# choose output image
-
+    # choose output image
     if status == 0:
         if imtype.lower() == 'raw_cnts':
             outim = raw_cnts
@@ -81,16 +76,16 @@ def kepimages(infile,outfix,imtype,ranges,clobber,verbose,logfile,status):
         else:
             outim = flux
 
-# identify images to be exported
-
+    # identify images to be exported
     if status == 0:
-        tim = array([]); dat = array([]); err = array([])
-        tstart, tstop, status = kepio.timeranges(ranges,logfile,verbose)
+        tim = array([])
+        dat = array([])
+        err = array([])
+        tstart, tstop, status = kepio.timeranges(ranges, logfile, verbose)
     if status == 0:
-        cadencelis, status = kepstat.filterOnRange(time,tstart,tstop)
+        cadencelis, status = kepstat.filterOnRange(time, tstart, tstop)
 
-# provide name for each output file and clobber if file exists
-
+    # provide name for each output file and clobber if file exists
     if status == 0:
         for cadence in cadencelis:
             outfile = outfix + '_BJD%.4f' % time[cadence] + '.fits'
@@ -99,8 +94,7 @@ def kepimages(infile,outfix,imtype,ranges,clobber,verbose,logfile,status):
                 message = 'ERROR -- KEPIMAGES: ' + outfile + ' exists. Use --clobber'
                 status = kepmsg.err(logfile,message,True)
 
-# construct output primary extension
-
+    # construct output primary extension
     if status == 0:
         ncad = 0
         for cadence in cadencelis:
@@ -108,31 +102,31 @@ def kepimages(infile,outfix,imtype,ranges,clobber,verbose,logfile,status):
             hdu0 = pyfits.PrimaryHDU()
             for i in range(len(cards0)):
                 try:
-                    if cards0[i].key not in hdu0.header.keys():
-                        hdu0.header.update(cards0[i].key, cards0[i].value, cards0[i].comment)
+                    if cards0[i].keyword not in hdu0.header.keys():
+                        hdu0.header.update(cards0[i].keyword, cards0[i].value, cards0[i].comment)
                     else:
-                        hdu0.header.cards[cards0[i].key].comment = cards0[i].comment
+                        hdu0.header.cards[cards0[i].keyword].comment = cards0[i].comment
                 except:
                     pass
             status = kepkey.history(call,hdu0,outfile,logfile,verbose)
             outstr = HDUList(hdu0)
 
-# construct output image extension
+            # construct output image extension
 
             hdu1 = ImageHDU(flux[cadence])
             for i in range(len(cards2)):
                 try:
-                    if cards2[i].key not in hdu1.header.keys():
-                        hdu1.header.update(cards2[i].key, cards2[i].value, cards2[i].comment)
+                    if cards2[i].keyword not in hdu1.header.keys():
+                        hdu1.header.update(cards2[i].keyword, cards2[i].value, cards2[i].comment)
                 except:
                     pass
             for i in range(len(cards1)):
-                if (cards1[i].key not in hdu1.header.keys() and
-                    cards1[i].key[:4] not in ['TTYP','TFOR','TUNI','TDIS','TDIM','WCAX','1CTY',
+                if (cards1[i].keyword not in hdu1.header.keys() and
+                    cards1[i].keyword[:4] not in ['TTYP','TFOR','TUNI','TDIS','TDIM','WCAX','1CTY',
                                               '2CTY','1CRP','2CRP','1CRV','2CRV','1CUN','2CUN',
                                               '1CDE','2CDE','1CTY','2CTY','1CDL','2CDL','11PC',
                                               '12PC','21PC','22PC','WCSN','TFIE']):
-                    hdu1.header.update(cards1[i].key, cards1[i].value, cards1[i].comment)
+                    hdu1.header.update(cards1[i].keyword, cards1[i].value, cards1[i].comment)
             try:
                 int_time = cards1['INT_TIME'].value
             except:
@@ -191,7 +185,7 @@ def kepimages(infile,outfix,imtype,ranges,clobber,verbose,logfile,status):
                 hdu1.header.update('POSCORR2',-999,'[pix] row position correction')
             outstr.append(hdu1)
 
-# write output file
+            # write output file
 
             if status == 0:
                 outstr.writeto(outfile,checksum=True)
@@ -201,22 +195,21 @@ def kepimages(infile,outfix,imtype,ranges,clobber,verbose,logfile,status):
                 sys.stdout.write(txt)
                 sys.stdout.flush()
 
-# close input structure
+    # close input structure
 
     if status == 0:
-        status = kepio.closefits(instr,logfile,verbose)	    
-        print '\n'
+        status = kepio.closefits(instr, logfile, verbose)
+        print('\n')
 
-# end time
-
-    kepmsg.clock('KEPIMAGES finished at',logfile,verbose)
+    # end time
+    kepmsg.clock('KEPIMAGES finished at', logfile, verbose)
 
 # -------------------------------------
 # main
 
 if '--shell' in sys.argv:
     import argparse
-    
+
     parser = argparse.ArgumentParser(description='Export images within a Target Pixel File to a series of FITS image files')
     parser.add_argument('--shell', action='store_true', help='Are we running from the shell?')
     parser.add_argument('infile', help='Name of input target pixel file', type=str)
@@ -227,15 +220,16 @@ if '--shell' in sys.argv:
     parser.add_argument('--clobber', action='store_true', help='Overwrite output file?')
     parser.add_argument('--verbose', action='store_true', help='Write to a log file?')
     parser.add_argument('--logfile', help='Name of ascii log file', default='kepimages.log', 
-        dest='logfile', type=str)
+                        dest='logfile', type=str)
     parser.add_argument('--status', help='Exit status (0=good)', default=0, dest='status', type=int)
 
     args = parser.parse_args()
-    
-    kepimages(args.infile,args.outfix,args.imtype,args.ranges,args.clobber,args.verbose,args.logfile,args.status)
+
+    kepimages(args.infile, args.outfix, args.imtype, args.ranges, args.clobber,
+              args.verbose, args.logfile, args.status)
 
 else:
     from pyraf import iraf
-        
+
     parfile = iraf.osfn("kepler$kepimages.par")
     t = iraf.IrafTaskFactory(taskname="kepimages", value=parfile, function=kepimages)
